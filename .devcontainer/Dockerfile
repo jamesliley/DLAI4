@@ -1,4 +1,4 @@
-FROM ghcr.io/rocker-org/devcontainer/tidyverse:4
+FROM ghcr.io/rocker-org/devcontainer/tidyverse:4.1
 
 RUN install2.r --error --skipinstalled --ncpus -2 \
     DataExplorer \
