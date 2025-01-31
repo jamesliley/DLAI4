@@ -49,10 +49,31 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -qq -y update \
     && DEBIAN_FRONTEND=noninteractive apt-get -qq -y clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip \
-    && pip install tensorflow --break-system-packages\
-    && pip install tensorflow-hub tensorflow-datasets scipy requests Pillow h5py pandas pydot --break-system-packages\
-    && echo "RETICULATE_PYTHON=/usr/bin/python3" >> /usr/local/lib/R/etc/Renviron.site
+RUN apt-get update && apt-get install -y \
+    python3.9 python3.9-venv python3-pip \
+    libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    r-base r-base-dev r-cran-reticulate \
+    && rm -rf /var/lib/apt/lists/*
+
+# Virtual environment
+RUN python3.9 -m venv /opt/tf-venv
+
+# Activate the virtual environment
+ENV PATH="/opt/tf-venv/bin:$PATH"
+
+# Upgrade pip and install required Python packages
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir tensorflow tensorflow-hub tensorflow-datasets \
+    scipy requests Pillow h5py pandas pydot
+
+# Configure R to use the correct Python
+RUN echo "RETICULATE_PYTHON=/opt/tf-venv/bin/python3" >> /usr/local/lib/R/etc/Renviron.site
+
+
+#RUN pip install --upgrade pip \
+#    && pip install tensorflow \
+#    && pip install tensorflow-hub tensorflow-datasets scipy requests Pillow h5py pandas pydot \
+#    && echo "RETICULATE_PYTHON=/usr/bin/python3" >> /usr/local/lib/R/etc/Renviron.site
 
 RUN echo "auth-none=1" >> /etc/rstudio/rserver.conf \
     && echo "USER=rstudio" >> /etc/environment
