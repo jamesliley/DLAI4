@@ -1,61 +1,25 @@
+# Start from Rocker devcontainer base image
 FROM ghcr.io/rocker-org/devcontainer/tidyverse:4
 
+# Install additional R packages
 RUN install2.r --error --skipinstalled --ncpus -2 \
-    DataExplorer \
-    GGally \
-    data.table \
-    doMC \
-    dplyr \
-    forcats \
-    foreach \
-    ggforce \
-    ggplot2 \
-    glmnet \
-    glue \
-    keras \
-    latex2exp \
-    markdown \
-    mgcv \
-    mlr3 \
-    mlr3learners \
-    mlr3verse \
-    modeldata \
-    mvtnorm \
-    nnet \
-    pixmap \
-    plotly \
-    ranger \
-    recipes \
-    rnaturalearth \
-    rnaturalearthdata \
-    rpart \
-    rsample \
-    skimr \
-    tidyverse \
-    webshot \
-    xgboost \
-    yardstick \
+    keras ggplot2 dplyr xgboost tidymodels ranger \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get -qq -y update \
-    && DEBIAN_FRONTEND=noninteractive apt-get -qq -y install \
-    libgeos-dev \
-    libudunits2-dev \
-    libproj-dev \
-    libgdal-dev \
-    libxt6 \
-    libglpk-dev \
-    && DEBIAN_FRONTEND=noninteractive apt-get -qq -y clean \
-    && rm -rf /var/lib/apt/lists/*
-
+# Install system dependencies for TensorFlow and GIS support
 RUN apt-get update && apt-get install -y \
-    python3.9 python3.9-venv python3-pip \
+    software-properties-common \
+    libgeos-dev libudunits2-dev libproj-dev libgdal-dev libxt6 libglpk-dev \
     libglib2.0-0 libsm6 libxext6 libxrender-dev \
-    r-base r-base-dev r-cran-reticulate \
     && rm -rf /var/lib/apt/lists/*
 
-# Virtual environment
+# Add Python 3.9 (ensure it's available)
+RUN add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    apt-get install -y python3.9 python3.9-venv python3-pip
+
+# Create a virtual environment for TensorFlow
 RUN python3.9 -m venv /opt/tf-venv
 
 # Activate the virtual environment
@@ -66,14 +30,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir tensorflow tensorflow-hub tensorflow-datasets \
     scipy requests Pillow h5py pandas pydot
 
-# Configure R to use the correct Python
-RUN echo "RETICULATE_PYTHON=/opt/tf-venv/bin/python3" >> /usr/local/lib/R/etc/Renviron.site
+# Ensure R uses the correct Python
+RUN echo "RETICULATE_PYTHON=/opt/tf-venv/bin/python3" >> /etc/R/Renviron.site
 
-
-#RUN pip install --upgrade pip \
-#    && pip install tensorflow \
-#    && pip install tensorflow-hub tensorflow-datasets scipy requests Pillow h5py pandas pydot \
-#    && echo "RETICULATE_PYTHON=/usr/bin/python3" >> /usr/local/lib/R/etc/Renviron.site
-
+# Configure RStudio authentication
 RUN echo "auth-none=1" >> /etc/rstudio/rserver.conf \
     && echo "USER=rstudio" >> /etc/environment
