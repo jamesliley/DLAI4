@@ -28,10 +28,10 @@ RUN ln -sf /usr/local/bin/python3.9 /usr/bin/python3 && \
     ln -sf /usr/local/bin/pip3.9 /usr/bin/pip3
 
 # Create a virtual environment for TensorFlow
-RUN python3.9 -m venv /opt/tf-venv
+#RUN python3.9 -m venv /opt/tf-venv
 
 # Activate the virtual environment
-ENV PATH="/opt/tf-venv/bin:$PATH"
+#ENV PATH="/opt/tf-venv/bin:$PATH"
 
 # Upgrade pip and install required Python packages
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     scipy requests Pillow h5py pandas pydot
 
 # Ensure R uses the correct Python
-RUN echo "RETICULATE_PYTHON=/opt/tf-venv/bin/python3" >> /etc/R/Renviron.site
+RUN echo "RETICULATE_PYTHON=/usr/local/bin/python3.9" >> /etc/R/Renviron.site
 
 # Configure RStudio authentication
 RUN echo "auth-none=1" >> /etc/rstudio/rserver.conf \
