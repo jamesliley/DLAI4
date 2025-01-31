@@ -14,10 +14,18 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 libsm6 libxext6 libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Python 3.9 (ensure it's available)
-RUN add-apt-repository ppa:deadsnakes/ppa -y && \
-    apt-get update && \
-    apt-get install -y python3.9 python3.9-venv python3-pip
+# Download & compile Python 3.9 with --enable-shared
+RUN cd /usr/src && \
+    wget https://www.python.org/ftp/python/3.9.18/Python-3.9.18.tgz && \
+    tar xzf Python-3.9.18.tgz && \
+    cd Python-3.9.18 && \
+    ./configure --enable-shared --prefix=/usr/local LDFLAGS="-Wl,-rpath /usr/local/lib" && \
+    make -j$(nproc) && \
+    make altinstall
+
+# Ensure the new Python is the default
+RUN ln -sf /usr/local/bin/python3.9 /usr/bin/python3 && \
+    ln -sf /usr/local/bin/pip3.9 /usr/bin/pip3
 
 # Create a virtual environment for TensorFlow
 RUN python3.9 -m venv /opt/tf-venv
