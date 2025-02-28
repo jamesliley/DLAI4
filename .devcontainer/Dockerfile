@@ -3,7 +3,7 @@ FROM ghcr.io/rocker-org/devcontainer/tidyverse:4
 
 # Install additional R packages
 RUN install2.r --error --skipinstalled --ncpus -2 \
-    keras ggplot2 dplyr xgboost tidymodels ranger \
+    keras keras3 ggplot2 dplyr xgboost tidymodels ranger \
     && rm -rf /tmp/downloaded_packages \
     && strip /usr/local/lib/R/site-library/*/libs/*.so
 
