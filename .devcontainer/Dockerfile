@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     scipy requests Pillow h5py pandas pydot
 
 # Ensure R uses the correct Python
-RUN echo "RETICULATE_PYTHON=/usr/local/bin/python3.9" >> /etc/R/Renviron.site
+# RUN echo "RETICULATE_PYTHON=/usr/local/bin/python3.9" >> /etc/R/Renviron.site
 
 # Run install_keras() in a non-interactive R session
 RUN Rscript -e "Sys.setenv(RETICULATE_PYTHON='/usr/local/bin/python3.9'); keras::install_keras()"
