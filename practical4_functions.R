@@ -73,3 +73,41 @@ wisdom=function(model,nc=200,temperature=0.5,start_index = sample(1:(nchar(text)
   cat("\n\n")
 }
 
+##' @description changes a series of words to one-hot, using a fixed set of words.
+##' @param xtext text to change
+##' @param ref words
+##' @return matrix
+to_one_hot=function(xtext,ref=allwords) {
+  return(model.matrix(~0+factor(xtext,levels=allwords)))
+}
+
+##' @description As for wisdom() but with words
+##' @param model trained LSTM model
+##' @param nc number of words
+##' @param temperature temperature at which to sample new words
+##' @param start_index start with a sentence at this start index.
+##' @return nothing; prints output.
+wisdom_words=function(model,nc=200,temperature=0.5,start_index = sample(length(words)-maxlen, 1)) {
+  seed_text = words[start_index:(start_index + maxlen - 1)]
+  cat("—- Generating with seed:", seed_text, "\n\n")
+  cat("—---- temperature:", temperature, "\n")
+  cat(paste0(seed_text,collapse=" "), "\n")
+  generated_text <- seed_text
+  xinput=array(0,dim=c(1,maxlen,nwords))
+  xinput[1,,]=to_one_hot(seed_text)
+  for (i in 1:nc) {
+#    for (t in 1:length(generated_chars)) {
+#      char <- generated_chars[[t]]
+#      sampled[1, t, char_indices[[char]]] <- 1
+#    }
+    preds <- model %>% predict(xinput, verbose = 0)
+    next_index <- sample_next_char(preds[1,], temperature)
+    next_word <- allwords[[next_index]]
+    generated_text <- c(generated_text,next_word)
+    cat(paste0(" ",next_word))
+    newrow=rep(0,nwords); newrow[match(next_word,allwords)]=1
+    xinput[1,,]=rbind(xinput[1,2:maxlen,],newrow)
+  }
+  cat("\n\n")
+}
+
