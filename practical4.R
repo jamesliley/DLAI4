@@ -63,7 +63,7 @@ barplot(t(cbind(X,X1,X2)),beside=TRUE)
 
 
 # Get data
-library(keras)
+library(keras3)
 library(stringr)
 #path = get_file(
 #  "nietzsche.txt",
@@ -137,6 +137,92 @@ wisdom(model,nc=250,temperature=0.7)
 
 
 
+
+
+## LSTMs using words instead
+
+
+
+
+# Get data
+library(keras3)
+library(stringr)
+#path = get_file(
+#  "nietzsche.txt",
+#  origin = "https://s3.amazonaws.com/text-datasets/nietzsche.txt"
+#)
+path=get_file(
+  "Stephenie%20Meyer%201.%20Twilight_djvu.txt",
+  origin="https://archive.org/stream/StephenieMeyer1.Twilight/Stephenie%20Meyer%201.%20Twilight_djvu.txt"
+)
+text0 = tolower(readChar(path, file.info(path)$size))
+cat("Corpus length (raw):", nchar(text0), "\n")
+
+# trim to the good stuff
+text1=substring(text0,
+                unlist(gregexpr("i'd never given much thought", text0))[1],
+                unlist(gregexpr("more to my throat.", text0))[1]+18)
+text=gsub("[\r\n—\\]", "", text1)
+
+cat("Corpus length (text only):", nchar(text), "\n")
+
+
+## Change to words 
+text_mod=text
+text_mod=gsub("."," .",text_mod,fixed=TRUE) # change full stop to put space first
+text_mod=gsub(","," ,",text_mod,fixed=TRUE) # change comma to put space first
+text_mod=gsub(" '"," ' ",text_mod,fixed=TRUE) # change quote to put space first
+text_mod=gsub("  "," ",text_mod,fixed=TRUE) # remove double space
+text_mod=gsub("[-\")()]","",text_mod,fixed=FALSE) # remove hyphens and quotes
+text_mod=tolower(text_mod)
+words=unlist(strsplit(text_mod," "))
+words=words[which(nchar(words)>0)]
+
+
+## Most frequent words. We will only consider fairly common words.
+mwords=table(words)
+xwords=names(mwords)[which(mwords>10)]
+allwords=xwords[order(mwords[xwords],decreasing=TRUE)]
+nwords=length(xwords)
+words=words[which(words %in% xwords)]
+
+# We are going to prepare this data for LSTM training. We will use words of length maxlen.
+training_set_size=10000
+maxlen = 10
+tlen=length(words)
+train_dat=array(0,dim=c(training_set_size,maxlen,nwords))
+gc()
+
+# Get 'sentences' of length maxlen
+start_indices = sample(1:(tlen-maxlen),training_set_size)
+for (i in 1:maxlen) {
+  w=words[start_indices + i - 1]
+  train_dat[,i,]=to_one_hot(w)
+}
+
+next_chars=to_one_hot(words[start_indices + maxlen])
+
+
+# Set up model. The 'sequential' will make this a sequence-processing model. 
+model = keras_model_sequential() %>%
+  layer_lstm(units = 128, input_shape = c(maxlen, nwords)) %>% 
+  layer_dense(units = nwords, activation = "softmax")  ## Output layer: this will predict the next character
+
+# Configuration
+optimizer = optimizer_rmsprop(learning_rate = 0.01)
+model %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = optimizer
+)
+
+
+## Train the model (and save it). 
+model %>% fit(train_dat, next_chars, batch_size = 128, epochs = 50)
+save_model(model,filepath="twilight_words.keras",overwrite=TRUE)
+gc()
+
+# Make some wisdom. Try this with several temperatures:
+wisdom_words(model,nc=250,temperature=0.7)
 
 
 ##**********************************************************************
