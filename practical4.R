@@ -112,9 +112,11 @@ nsent=50000 # train on this many
 
 
 # Set up model. The 'sequential' will make this a sequence-processing model. 
-model = keras_model_sequential() %>%
-  layer_lstm(units = 128, input_shape = c(maxlen, length(chars))) %>% 
+input = layer_input(shape=c(maxlen, length(chars)))
+output = input %>%   
+  layer_lstm(units = 128) %>% 
   layer_dense(units = length(chars), activation = "softmax")  ## Output layer: this will predict the next character
+model=keras_model(input,output)
 
 # Configuration
 optimizer = optimizer_rmsprop(learning_rate = 0.01)
@@ -127,7 +129,7 @@ model %>% compile(
 ## Train the model (and save it). 
 xy=get_sentence_subset(50000)
 model %>% fit(xy[[1]], xy[[2]], batch_size = 128, epochs = 30)
-model %>% save_model_hdf5("twilight.h5")
+save_model(model,"twilight_characters.keras")
 gc()
 
 # Make some wisdom. Try this with several temperatures:
@@ -140,9 +142,10 @@ wisdom(model,nc=250,temperature=0.7)
 
 
 ## LSTMs using words instead
+## Best to start a new R session before this.
 
-
-
+# Re-source functions
+source("/workspaces/DLAI4/practical4_functions.R")
 
 # Get data
 library(keras3)
@@ -204,33 +207,43 @@ next_chars=to_one_hot(words[start_indices + maxlen])
 
 
 # Set up model. The 'sequential' will make this a sequence-processing model. 
-model = keras_model_sequential() %>%
-  layer_lstm(units = 128, input_shape = c(maxlen, nwords)) %>% 
+input = layer_input(shape=c(maxlen, nwords))
+output = input %>%   
+  layer_lstm(units = 128) %>% 
   layer_dense(units = nwords, activation = "softmax")  ## Output layer: this will predict the next character
+model_words=keras_model(input,output)
 
 # Configuration
 optimizer = optimizer_rmsprop(learning_rate = 0.01)
-model %>% compile(
+model_words %>% compile(
   loss = "categorical_crossentropy",
   optimizer = optimizer
 )
 
 
 ## Train the model (and save it). 
-model %>% fit(train_dat, next_chars, batch_size = 128, epochs = 50)
-save_model(model,filepath="twilight_words.keras",overwrite=TRUE)
+model_words %>% fit(train_dat, next_chars, batch_size = 128, epochs = 50)
+save_model(model_words,filepath="twilight_words.keras",overwrite=TRUE)
 gc()
 
 # Make some wisdom. Try this with several temperatures:
-wisdom_words(model,nc=250,temperature=0.7)
+wisdom_words(model_words,nc=250,temperature=0.7)
+
+
 
 
 ##**********************************************************************
 ## 3. GANS                                                          ####
 ##**********************************************************************
 
-## We will set up a GAN to generate images from CIFAR. 
+## Restart R before starting this. 
 
+# Reload Keras and functions 
+library(keras3)
+source("/workspaces/DLAI4/practical4_functions.R")
+
+
+## We will set up a GAN to generate images from CIFAR. 
 
 
 ## Train the GAN
@@ -243,12 +256,12 @@ x_train = x_train[as.integer(y_train) == 7,,,] # pictures of horses
 x_train = x_train / 255
 
 # Look at a couple of pictures
-par(mfrow=c(2,2))
+oldpar=par(mfrow=c(2,2),mar=rep(0.5,4))
 for (i in 1:4) {
   ix=sample(dim(x_train)[1],1)
   plot(as.raster(x_train[ix,,,]))
 }
-
+par(oldpar)
 
 
 
@@ -316,7 +329,7 @@ gan %>% compile(
 )
 
 
-iterations = 1000 # Really needs to be more like 10k
+iterations = 500 # Really needs to be more like 10k
 batch_size = 5
 start = 1
 for (step in 1:iterations) {
@@ -386,6 +399,18 @@ save_model(generator, "gan_generator.keras")
 ##**********************************************************************
 ## 4. VAEs                                                          ####
 ##**********************************************************************
+
+# Restart R before starting this.
+# Reload Keras and functions 
+library(keras3)
+library(tensorflow)
+library(reticulate)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(Polychrome)
+
+source("/workspaces/DLAI4/practical4_functions.R")
 
 library(Polychrome)
 
