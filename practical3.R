@@ -124,6 +124,7 @@ display_image(gs,main="Convolved")
 ## 2. CNNs                                                          ####
 ##**********************************************************************
 
+
 ## Define a series of directories
 base_dir="cats_and_dogs_small/"
 train_dir="cats_and_dogs_small/train/"
@@ -140,12 +141,60 @@ test_dogs_dir=paste0(test_dir,"dogs/")
 test_cats_dir=paste0(test_dir,"cats/")
 
 ## Keras
-library(keras)
+library(keras3)
+
+
+
+# Functions to get images from the appropriate directories and resize them
+train_datagen=image_dataset_from_directory(
+  directory = train_dir,
+  image_size=c(150,150),
+  batch_size=20,
+  label_mode="binary"
+)
+test_datagen=image_dataset_from_directory(
+  directory = test_dir,
+  image_size=c(150,150),
+  batch_size=20,
+  label_mode="binary"
+)
+validation_datagen=image_dataset_from_directory(
+  directory = validation_dir,
+  image_size=c(150,150),
+  batch_size=20,
+  label_mode="binary"
+)
+
+## The following code generates `simulated' data, which is essentially the same 
+##  images rotated and scaled. We will in fact do this with a neural network, 
+##  which is a reasonably sensible way to manage this:
+data_augmentation <-
+  keras_model_sequential(input_shape = c(150,150, 3)) %>%
+  layer_random_flip("horizontal") %>% # Flip some models horizontally
+  layer_random_rotation(factor = 0.1) # Rotate
+
+
+
+
+# Draw a couple of cats/dogs
+
+# Get a batch
+batch <- train_datagen %>%
+  as_iterator() %>%
+  iter_next()
+oldpar=par(mfrow=c(2,2),mar=rep(0.5,4))
+for (i in 1:4) {
+  plot(0,xlim=c(0,1),ylim=c(0,1),xaxt="n",yaxt="n",xlab="",ylab="",type="n")
+  rasterImage(batch[[1]][sample(20,1),,,]/255,0,0,1,1)
+}
+par(oldpar)
+
 
 ## Set up model
-model <- keras_model_sequential() %>%
-  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu",
-                input_shape = c(150, 150, 3)) %>%
+input = layer_input(shape=c(150, 150, 3))
+output = input %>% 
+  layer_rescaling(scale = 1/255) %>% # rescale RGB values (in [0,255]) to [0,1]
+  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
   layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
@@ -156,6 +205,7 @@ model <- keras_model_sequential() %>%
   layer_flatten() %>%
   layer_dense(units = 512, activation = "relu") %>%
   layer_dense(units = 1, activation = "sigmoid")
+model=keras_model(input,output)
 
 ## Look at model (note the number of trainable parameters!)
 summary(model)
@@ -168,99 +218,54 @@ model %>% compile(
 )
 
 
-## The following code reshapes the images to make them easier to train on.
-train_datagen = image_data_generator(rescale = 1/255)
-validation_datagen = image_data_generator(rescale = 1/255)
-test_datagen = image_data_generator(rescale = 1/255)
-train_generator = flow_images_from_directory(
-  train_dir,
-  train_datagen,
-  target_size = c(150, 150),
-  batch_size = 20,
-  class_mode = "binary"
-)
-validation_generator = flow_images_from_directory(
-  validation_dir,
-  validation_datagen,
-  target_size = c(150, 150),
-  batch_size = 20,
-  class_mode = "binary"
-)
-test_generator = flow_images_from_directory(
-  test_dir,
-  test_datagen,
-  target_size = c(150, 150),
-  batch_size = 20,
-  class_mode = "binary"
-)
-
-## Take a quick look at what is going on with (e.g.) train_generator
-batch = generator_next(train_generator)
-str(batch)
-# This gives a batch of 20 images (in batch[[1]][1:20,,,]) and labels (in batch[[2]][1:20])
-
-# Draw a couple of cats/dogs
-par(mfrow=c(1,2))
-plot(0,xlim=c(0,1),ylim=c(0,1),xaxt="n",yaxt="n",xlab="",ylab="",type="n")
-rasterImage(batch[[1]][1,,,],0,0,1,1)
-plot(0,xlim=c(0,1),ylim=c(0,1),xaxt="n",yaxt="n",xlab="",ylab="",type="n")
-rasterImage(batch[[1]][2,,,],0,0,1,1)
-
 ### Train the model (and remember history). This is very slow!
-history = model %>% fit_generator(
-  train_generator,
+history = model %>% fit(
+  train_datagen,
   steps_per_epoch = 100,
   epochs = 10,
-  validation_data = validation_generator,
+  validation_data = validation_datagen,
   validation_steps = 50
 )
 
 ## Save the model (worth doing after all that training)
-model %>% save_model_hdf5("cats_and_dogs_small_1.h5")
+save_model(model,"cats_and_dogs_small_1.keras")
 
 ## This history is typical of overtraining:
 plot(history)
 
-
-### How can we improve it? Let's add some noise
-
-## The following code generates `simulated' data, which is essentially the same 
-##  images rotated and scaled. This effectively enlarges the training sample.
-datagen = image_data_generator(
-  rescale = 1/255,
-  rotation_range = 40,
-  width_shift_range = 0.2,
-  height_shift_range = 0.2,
-  shear_range = 0.2,
-  zoom_range = 0.2,
-  horizontal_flip = TRUE,
-  fill_mode = "nearest"
-)
-
-## As examples:
-fnames= list.files(train_cats_dir, full.names = TRUE)
-img_path = fnames[[3]]
-img = image_load(img_path, target_size = c(150, 150))
-img_array = image_to_array(img)
-img_array = array_reshape(img_array, c(1, 150, 150, 3))
-augmentation_generator = flow_images_from_data(
-  img_array,
-  generator = datagen,
-  batch_size = 1
-)
-op = par(mfrow = c(2, 2), pty = "s", mar = c(1, 0, 1, 0))
-for (i in 1:4) {
-  batch = generator_next(augmentation_generator)
-  plot(as.raster(batch[1,,,]))
+## Let's see how we did:
+batch <- train_datagen %>%
+  as_iterator() %>%
+  iter_next()
+mp=predict(model,batch[[1]])
+par(mfrow=c(2,3))
+for (i in 1:6) {
+  par(mar=c(1,4,1,1))
+  plot(as.raster(batch[[1]][i,,,]/255))
+  mpx=mp[i]
+  title(main=paste0(c("Cat","Dog")[1 + (mpx>0.5)]))
 }
-par(op)
+# rubbish
 
 
+### How can we improve it? Let's add some simulated data
 
-## Let's also add some dropout layers
-model = keras_model_sequential() %>%
-  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu",
-                input_shape = c(150, 150, 3)) %>%
+# Let's look at the result of repeatedly applying this to one image
+par(mfrow = c(3, 3))
+bx=batch[[1]][3, , , ,drop=FALSE] 
+for (i in 1:9) {
+  bx=bx %>%
+    data_augmentation()
+  plot(as.raster(bx[1,,,]/255))
+}
+
+# Make our new model:
+## Set up model
+input2 = layer_input(shape=c(150, 150, 3))
+output2 = input2 %>% 
+  data_augmentation() %>%
+  layer_rescaling(scale = 1/255) %>% # rescale RGB values (in [0,255]) to [0,1]
+  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
   layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
@@ -269,53 +274,99 @@ model = keras_model_sequential() %>%
   layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>%
   layer_max_pooling_2d(pool_size = c(2, 2)) %>%
   layer_flatten() %>%
-  layer_dropout(rate = 0.5) %>%
   layer_dense(units = 512, activation = "relu") %>%
   layer_dense(units = 1, activation = "sigmoid")
-model %>% compile(
+model2=keras_model(input2,output2)
+
+# Compile and train
+## Compile model, getting ready for training (don't worry about warnings)
+model2 %>% compile(
   loss = "binary_crossentropy",
   optimizer = optimizer_rmsprop(learning_rate = 1e-4),
   metrics = c("acc")
 )
 
-
-## aannnddd.. train it again
-datagen = image_data_generator(
-  rescale = 1/255,
-  rotation_range = 40,
-  width_shift_range = 0.2,
-  height_shift_range = 0.2,
-  shear_range = 0.2,
-  zoom_range = 0.2,
-  horizontal_flip = TRUE
-)
-test_datagen = image_data_generator(rescale = 1/255)
-train_generator = flow_images_from_directory(
-  train_dir,
-  datagen,
-  target_size = c(150, 150),
-  batch_size = 32,
-  class_mode = "binary"
-)
-validation_generator = flow_images_from_directory(
-  validation_dir,
-  test_datagen,
-  target_size = c(150, 150),
-  batch_size = 32,
-  class_mode = "binary"
-)
-history = model %>% fit_generator(
-  train_generator,
+### Train the model (and remember history). This is very slow!
+history2 = model2 %>% fit(
+  train_datagen,
   steps_per_epoch = 100,
   epochs = 10,
-  validation_data = validation_generator,
+  validation_data = validation_datagen,
   validation_steps = 50
 )
 
-## and save the new model:
-model %>% save_model_hdf5("cats_and_dogs_small_2.h5")
+## Save the model (worth doing after all that training)
+save_model(model2,"cats_and_dogs_small_2.keras")
+
+## Looking again at history
+plot(history2)
+
+## Let's see how we did:
+batch <- train_datagen %>%
+  as_iterator() %>%
+  iter_next()
+mp=predict(model2,batch[[1]])
+par(mfrow=c(2,3))
+for (i in 1:6) {
+  par(mar=c(1,4,1,1))
+  plot(as.raster(batch[[1]][i,,,]/255))
+  mpx=mp[i]
+  title(main=paste0(c("Cat","Dog")[1 + (mpx>0.5)]))
+}
+# slightly better.
 
 
 ## A better way to do this is to use a model which has already been trained to 
 ##  identify images, and re-train it to identify cats and dogs; this is a bit 
 ##  more involved, but a guide is available in Chollet et al. 
+
+## Let's do this with the imagenet weights
+gc()
+base_model= application_xception(
+  weights = 'imagenet', # Load weights pre-trained on ImageNet.
+  input_shape = c(150, 150, 3),
+  include_top = FALSE # Do not include the ImageNet classifier at the top.
+)
+
+# Set the base model to be nontrainable
+base_model$trainable = FALSE
+
+# We are going to put an extra layer over the big imagenet model
+inputs <- layer_input(c(150, 150, 3))
+outputs <- inputs %>%
+  data_augmentation() %>%
+  layer_rescaling(scale = 1/255) %>% # rescale RGB values (in [0,255]) to [0,1]
+  base_model(training=FALSE) %>%
+  layer_global_average_pooling_2d() %>%
+  layer_dense(1)
+model_imagenet <- keras_model(inputs, outputs)
+
+# Compile and train
+model_imagenet %>%
+  compile(optimizer = optimizer_adam(),
+          loss = loss_binary_crossentropy(from_logits = TRUE),
+          metrics = metric_binary_accuracy())
+history_imagenet= model_imagenet %>%  fit(
+  train_datagen,
+  steps_per_epoch = 30,
+  epochs = 5,
+  validation_data = validation_datagen,
+  validation_steps = 50
+)
+
+save_model(model_imagenet,"cats_and_dogs_small_imagenet.keras")
+
+## Now evaluate, and let's see how we did:
+## Let's see how we did:
+batch <- train_datagen %>%
+  as_iterator() %>%
+  iter_next()
+mp=predict(model_imagenet,batch[[1]])
+par(mfrow=c(2,3))
+for (i in 1:6) {
+  par(mar=c(1,4,1,1))
+  plot(as.raster(batch[[1]][i,,,]/255))
+  mpx=mp[i]
+  title(main=paste0(c("Cat","Dog")[1 + (mpx>0.5)]))
+}
+# slightly better.
