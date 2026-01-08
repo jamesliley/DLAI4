@@ -1,8 +1,7 @@
 ##**********************************************************************
 ##  DLAI4 (MATH4267) practical worksheets                           ####
-##  Code to accompany written material
+##  Code to accompany written material for practical 2
 ##  James Liley                                                         
-##  October 2023                                                              
 ##**********************************************************************
 
 # Functions

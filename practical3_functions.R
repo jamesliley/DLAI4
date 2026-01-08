@@ -1,3 +1,9 @@
+##**********************************************************************
+##  DLAI4 (MATH4267) practical worksheets                           ####
+##  Auxiliary material for practical 3
+##  James Liley                                                         
+##**********************************************************************
+
 require(jpeg)
 
 ##' Get complex image. 
