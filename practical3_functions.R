@@ -10,7 +10,7 @@ require(jpeg)
 ##' 
 ##' @return Matrix representing gray levels for grayscale version of Goya's 'The Witches' sabbath'
 get_complex_image=function() {
-  ux="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Francisco_de_Goya_y_Lucientes_-_Witches_Sabbath_-_Google_Art_Project.jpg/1024px-Francisco_de_Goya_y_Lucientes_-_Witches_Sabbath_-_Google_Art_Project.jpg"
+  ux="https://upload.wikimedia.org/wikipedia/commons/7/7e/Francisco_de_Goya_y_Lucientes_-_Witches_Sabbath_-_Google_Art_Project.jpg"
   loc='~/goya.jpg'
   download.file(ux, loc)
   goya=readJPEG(loc)
