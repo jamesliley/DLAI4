@@ -51,7 +51,7 @@ X1=rmultinom(1,1000,pp1)
 X2=rmultinom(1,1000,pp2)
 barplot(t(cbind(X,X1,X2)),beside=TRUE)
 
-# As T tends to infinity, the multinomial distribution becomes dominated
+# As T tends to zero, the multinomial distribution becomes dominated
 #  by the largest value; as T tends to infinity, all probabilities 
 #  become equal. 
 
